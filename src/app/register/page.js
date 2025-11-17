@@ -1,110 +1,141 @@
-// src/app/register/page.js
+// src/app/dashboard/profile/page.js (VERSIÓN GLOBAL FINAL)
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { useAuth } from '../../../context/AuthContext';
+import { useRouter } from 'next/navigation';
+import { db } from '../../../lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation'; // Importamos el hook de enrutamiento
-import { createUserWithEmailAndPassword } from 'firebase/auth'; // Función de Firebase para registrar
-import { auth } from '../../lib/firebase'; // Importamos nuestra configuración de auth
 
-export default function RegisterPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState(null); // Nuevo estado para manejar errores
-  const [loading, setLoading] = useState(false); // Nuevo estado para indicar carga
-  const router = useRouter(); // Inicializamos el enrutador
+export default function ProfilePage() {
+  const { user } = useAuth();
+  const router = useRouter();
+  const videoRef = useRef(null);
+  const modelsLoaded = useRef(false);
 
-  // Convertimos la función a async para poder usar await
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setError(null); // Reiniciamos cualquier error previo
-    setLoading(true); // Empezamos la carga
+  const [loadingMessage, setLoadingMessage] = useState('Cargando modelos de IA...');
+  const [isCameraOn, setIsCameraOn] = useState(false);
+  const [message, setMessage] = useState('Apunta tu cara al centro del recuadro.');
+  const [error, setError] = useState('');
 
-    // Validamos que la contraseña sea de al menos 6 caracteres
-    if (password.length < 6) {
-        setError('La contraseña debe tener al menos 6 caracteres.');
-        setLoading(false);
+  useEffect(() => {
+    const loadModels = async () => {
+      // Espera a que el script global (cargado en layout.js) esté disponible
+      if (typeof window.faceapi === 'undefined') {
+        setTimeout(loadModels, 100); // Reintenta en 100ms
         return;
-    }
-
-    try {
-      // Usamos la función de Firebase para crear el usuario
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      console.log('Usuario registrado con éxito:', userCredential.user);
-      
-      // Si el registro es exitoso, redirigimos al usuario a la página de login
-      alert('¡Registro exitoso! Ahora serás redirigido para iniciar sesión.');
-      router.push('/login');
-
-    } catch (error) {
-      // Manejamos los errores más comunes de Firebase
-      console.error('Error en el registro:', error.code, error.message);
-      if (error.code === 'auth/email-already-in-use') {
-        setError('Este correo electrónico ya está en uso.');
-      } else if (error.code === 'auth/invalid-email') {
-        setError('El formato del correo electrónico no es válido.');
-      } else {
-        setError('Ocurrió un error al intentar registrar la cuenta.');
       }
-    } finally {
-      // Se ejecuta siempre, al final del try o del catch
-      setLoading(false); // Terminamos la carga
+      if (modelsLoaded.current) return;
+      
+      const MODEL_URL = '/models';
+      try {
+        console.log("Cargando modelos desde /models...");
+        await Promise.all([
+          window.faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+          window.faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+          window.faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+        ]);
+        modelsLoaded.current = true;
+        setLoadingMessage('');
+        console.log("Modelos cargados en Perfil.");
+      } catch (err) {
+        console.error("Error al cargar modelos:", err)
+        setError("Error al cargar modelos de IA.");
+      }
+    };
+    loadModels();
+  }, []);
+
+  const startCamera = () => {
+    if (!modelsLoaded.current) {
+      alert("Los servicios de IA todavía se están cargando.");
+      return;
     }
+    setMessage('Iniciando cámara...');
+    setIsCameraOn(true);
   };
 
+  useEffect(() => {
+    const activateCamera = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch (err) {
+        console.error("Error al activar cámara:", err);
+        setMessage('No se pudo acceder a la cámara.');
+        setIsCameraOn(false);
+      }
+    };
+    if (isCameraOn) {
+      activateCamera();
+    }
+    return () => {
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject;
+        stream.getTracks().forEach(track => track.stop());
+        videoRef.current.srcObject = null;
+      }
+    };
+  }, [isCameraOn]);
+
+  const stopCamera = () => {
+    setIsCameraOn(false);
+    setMessage('Apunta tu cara al centro del recuadro.');
+  };
+
+  const handleRegisterFace = useCallback(async () => {
+    if (!videoRef.current || !modelsLoaded.current) return;
+    setMessage('Procesando...');
+    try {
+      const detections = await window.faceapi.detectSingleFace(videoRef.current, new window.faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+      if (!detections) {
+        setMessage('No se detectó un rostro. Inténtalo de nuevo.');
+        return;
+      }
+      const faceDescriptor = detections.descriptor;
+      const userDocRef = doc(db, "users", user.uid);
+      await setDoc(userDocRef, { 
+        email: user.email, 
+        faceDescriptor: Array.from(faceDescriptor)
+      });
+      setMessage('¡Rostro registrado con éxito!');
+      stopCamera();
+    } catch (err) {
+      setError('Ocurrió un error al procesar el rostro.');
+      console.error(err);
+    }
+  }, [user]);
+
+  if (!user) return <div className="flex items-center justify-center min-h-screen">Redirigiendo...</div>;
+
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
-        <h1 className="text-2xl font-bold text-center text-gray-900">Crear una Cuenta</h1>
-        
-        {/* Mostramos el mensaje de error si existe */}
-        {error && <p className="text-sm text-center text-red-500 bg-red-100 p-3 rounded-md">{error}</p>}
-        
-        <form onSubmit={handleRegister} className="space-y-6">
-          <div>
-            <label htmlFor="email" className="text-sm font-medium text-gray-700">
-              Correo Electrónico
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-            />
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
+      <div className="w-full max-w-md p-8 space-y-4 bg-white rounded-lg shadow-md text-center">
+        <h1 className="text-2xl font-bold">Perfil de Usuario</h1>
+        <p>Hola, {user.email}</p>
+        <div className="border-t pt-4">
+          <h2 className="text-xl font-semibold mb-2">Login con Face ID</h2>
+          <div className="bg-gray-800 w-full aspect-square rounded-md mx-auto overflow-hidden flex items-center justify-center">
+            <video ref={videoRef} autoPlay muted playsInline className={isCameraOn ? 'block' : 'hidden'} style={{ transform: 'scaleX(-1)' }}></video>
           </div>
-          <div>
-            <label htmlFor="password" className="text-sm font-medium text-gray-700">
-              Contraseña
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-            />
+          {loadingMessage && <p>{loadingMessage}</p>}
+          {error && <p className="text-red-500">{error}</p>}
+          {!error && !loadingMessage && <p className="text-gray-600 h-6">{message}</p>}
+          <div className="mt-4 space-y-2">
+            {!isCameraOn ? (
+              <button onClick={startCamera} disabled={!!loadingMessage} className="w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600 disabled:bg-blue-300">Activar Cámara</button>
+            ) : (
+              <>
+                <button onClick={handleRegisterFace} className="w-full bg-green-500 text-white py-2 rounded-md hover:bg-green-600">Escanear y Guardar mi Rostro</button>
+                <button onClick={stopCamera} className="w-full bg-gray-500 text-white py-2 rounded-md hover:bg-gray-600">Cancelar</button>
+              </>
+            )}
           </div>
-          <div>
-            <button
-              type="submit"
-              disabled={loading} // Deshabilitamos el botón mientras está cargando
-              className="w-full px-4 py-2 font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-300"
-            >
-              {loading ? 'Registrando...' : 'Registrarse'}
-            </button>
-          </div>
-        </form>
-        <p className="text-sm text-center text-gray-600">
-          ¿Ya tienes una cuenta?{' '}
-          <Link href="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
-            Inicia Sesión
-          </Link>
-        </p>
+        </div>
+        <Link href="/dashboard" className="mt-4 text-indigo-600 hover:text-indigo-700">Volver al Dashboard</Link>
       </div>
     </div>
   );

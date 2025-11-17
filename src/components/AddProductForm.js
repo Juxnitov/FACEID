@@ -2,35 +2,37 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { db } from '../lib/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useAuth } from '../context/AuthContext';
 
 export default function AddProductForm() {
-  // Estados para los campos del formulario
+  const { user } = useAuth();
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [stock, setStock] = useState('');
-  const [image, setImage] = useState(null); // Guardará la foto capturada
-  const [stream, setStream] = useState(null); // Guardará el stream de la cámara
-  const [error, setError] = useState('');
+  const [image, setImage] = useState(null);
+  const [stream, setStream] = useState(null);
 
-  // Referencias a los elementos del DOM
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
+
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
-  // Función para iniciar la cámara
+  // Funciones para manejar la cámara
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       setStream(stream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
+      if (videoRef.current) videoRef.current.srcObject = stream;
     } catch (err) {
       console.error("Error al acceder a la cámara:", err);
       setError("No se pudo acceder a la cámara. Revisa los permisos.");
     }
   };
 
-  // Función para detener la cámara
   const stopCamera = () => {
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
@@ -38,7 +40,6 @@ export default function AddProductForm() {
     }
   };
 
-  // Función para capturar la foto
   const captureImage = () => {
     if (videoRef.current && canvasRef.current) {
       const context = canvasRef.current.getContext('2d');
@@ -46,46 +47,85 @@ export default function AddProductForm() {
       canvasRef.current.height = videoRef.current.videoHeight;
       context.drawImage(videoRef.current, 0, 0, videoRef.current.videoWidth, videoRef.current.videoHeight);
       
-      // Convertir el canvas a un archivo Blob
       canvasRef.current.toBlob(blob => {
         setImage(blob);
       }, 'image/jpeg');
 
-      stopCamera(); // Detenemos la cámara después de tomar la foto
+      stopCamera();
     }
   };
-
+  
   const handleRetake = () => {
     setImage(null);
     startCamera();
   };
+  
+  useEffect(() => {
+    return () => stopCamera();
+  }, [stream]);
 
+  // ===== NUEVA FUNCIÓN handleSubmit =====
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!image) {
-      setError("Por favor, captura una imagen para el producto.");
+    if (!image || !user) {
+      setError("Se requiere una imagen y estar autenticado.");
       return;
     }
+    
+    setLoading(true);
     setError('');
-    console.log({ name, price, stock, image });
-    // Aquí irá la lógica para subir a Firebase
-    alert("Producto listo para ser guardado (lógica pendiente)");
-  };
+    setSuccess('');
 
-  // Limpia la cámara si el componente se desmonta
-  useEffect(() => {
-    return () => {
-      stopCamera();
-    };
-  }, [stream]);
+    try {
+      // 1. Enviar la imagen a la API Route
+      const formData = new FormData();
+      formData.append('file', image);
+
+      const uploadResponse = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const uploadData = await uploadResponse.json();
+
+      if (!uploadData.success) {
+        throw new Error(uploadData.error || 'Fallo al subir la imagen.');
+      }
+
+      const imageUrl = uploadData.url;
+
+      // 2. Guardar los datos del producto en Firestore
+      const productsCollectionRef = collection(db, "products");
+      await addDoc(productsCollectionRef, {
+        name: name,
+        price: parseFloat(price),
+        stock: parseInt(stock, 10),
+        imageUrl: imageUrl,
+        createdBy: user.uid,
+        createdAt: serverTimestamp()
+      });
+      
+      setSuccess('¡Producto registrado con éxito!');
+      setName('');
+      setPrice('');
+      setStock('');
+      setImage(null);
+
+    } catch (err) {
+      console.error("Error al guardar el producto:", err);
+      setError("No se pudo guardar el producto.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="p-6 bg-white rounded-lg shadow-md w-full max-w-lg">
       <h2 className="text-2xl font-bold mb-4">Registrar Nuevo Producto</h2>
       
-      {error && <p className="text-red-500 bg-red-100 p-3 rounded-md mb-4">{error}</p>}
+      {error && <p className="text-red-500 bg-red-100 p-3 rounded-md mb-4 text-center">{error}</p>}
+      {success && <p className="text-green-500 bg-green-100 p-3 rounded-md mb-4 text-center">{success}</p>}
 
-      {/* Sección de la Cámara */}
       <div className="mb-4 p-4 border rounded-md">
         <h3 className="font-semibold mb-2">Imagen del Producto</h3>
         <div className="bg-gray-200 w-full aspect-video rounded-md flex items-center justify-center overflow-hidden">
@@ -96,7 +136,7 @@ export default function AddProductForm() {
           )}
           {!stream && !image && <p className="text-gray-500">La cámara está apagada</p>}
         </div>
-        <canvas ref={canvasRef} className="hidden"></canvas> {/* Canvas oculto para procesar la imagen */}
+        <canvas ref={canvasRef} className="hidden"></canvas>
         <div className="flex justify-center gap-4 mt-4">
           {!stream && !image && (
             <button type="button" onClick={startCamera} className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
@@ -116,7 +156,6 @@ export default function AddProductForm() {
         </div>
       </div>
 
-      {/* Formulario de Datos */}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label htmlFor="productName" className="block text-sm font-medium text-gray-700">Nombre del Producto</label>
@@ -130,8 +169,8 @@ export default function AddProductForm() {
           <label htmlFor="productStock" className="block text-sm font-medium text-gray-700">Cantidad en Stock</label>
           <input type="number" id="productStock" value={stock} onChange={e => setStock(e.target.value)} required min="0" step="1" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
         </div>
-        <button type="submit" className="w-full bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 disabled:bg-indigo-300" disabled={!image}>
-          Guardar Producto
+        <button type="submit" className="w-full bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 disabled:bg-indigo-300" disabled={!image || loading}>
+          {loading ? 'Guardando...' : 'Guardar Producto'}
         </button>
       </form>
     </div>

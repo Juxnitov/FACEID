@@ -9,12 +9,18 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@tensorflow/tfjs-backend-webgl": "^4.22.0",
     "@tensorflow/tfjs-core": "^4.22.0",
-    "face-api.js": "^0.20.0",
+    "face-api.js": "^0.22.2",
     "firebase": "^12.6.0",
+    "firebase-admin": "^13.6.0",
+    "formidable": "^3.5.4",
+    "jspdf": "^3.0.3",
+    "multiparty": "^4.2.3",
     "next": "16.0.3",
     "react": "19.2.0",
-    "react-dom": "19.2.0"
+    "react-dom": "19.2.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
