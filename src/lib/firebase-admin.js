@@ -1,41 +1,46 @@
 // src/lib/firebase-admin.js (VERSIÓN FINAL Y CORREGIDA)
 import admin from 'firebase-admin';
 
-// --- TAREA: Abre tu archivo 'serviceAccountKey.json' y copia/pega los valores aquí ---
-const serviceAccount = {
-  "type": "service_account",
-  "project_id": "faceid-c3cb4",
-  "private_key_id": "TU_PRIVATE_KEY_ID_DE_TU_JSON", 
-  "private_key": "-----BEGIN PRIVATE KEY-----\n...TODA_TU_CLAVE_PRIVADA_DE_TU_JSON...\n-----END PRIVATE KEY-----\n",
-  "client_email": "firebase-adminsdk-fbsvc@faceid-c3cb4.iam.gserviceaccount.com", 
-  "client_id": "TU_CLIENT_ID_DE_TU_JSON",
-  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-  "token_uri": "https://oauth2.googleapis.com/token",
-  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-  "client_x509_cert_url": "TU_CERT_URL_DE_TU_JSON"
-};
+const projectId = process.env.FIREBASE_PROJECT_ID;
+const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+const storageBucket = process.env.FIREBASE_STORAGE_BUCKET;
 
-const BUCKET_NAME = "faceid-c3cb4.firebasestorage.app"; // Verifica que este sea tu bucket name
-// ----------------------------------------------------------------------------------
+const required = { projectId, clientEmail, privateKey, storageBucket };
+const missing = Object.entries(required)
+  .filter(([, value]) => !value)
+  .map(([key]) => key);
 
-
-if (!admin.apps.length) {
-  try {
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-      // Ya no pasamos el bucket name aquí
-    });
-    console.log("✅ Firebase Admin SDK inicializado.");
-  } catch (error) {
-    console.error("❌ ERROR FATAL al inicializar Firebase Admin:", error.message);
-  }
+if (missing.length) {
+  console.error(`❌ Firebase Admin env vars faltantes: ${missing.join(', ')}`);
 }
 
-const adminDb = admin.firestore();
+let adminDb = null;
+let adminStorage = null;
 
-// --- ¡LA CORRECCIÓN MÁS IMPORTANTE ESTÁ AQUÍ! ---
-// Le pasamos el BUCKET_NAME directamente a la función bucket()
-const adminStorage = admin.storage().bucket(BUCKET_NAME);
-// --------------------------------------------
+try {
+  if (!admin.apps.length) {
+    if (missing.length) {
+      throw new Error(
+        `Variables de entorno faltantes para Firebase Admin: ${missing.join(', ')}`
+      );
+    }
+
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId,
+        clientEmail,
+        privateKey,
+      }),
+      storageBucket,
+    });
+    console.log('✅ Firebase Admin SDK inicializado.');
+  }
+
+  adminDb = admin.firestore();
+  adminStorage = admin.storage().bucket();
+} catch (error) {
+  console.error('❌ Firebase Admin no disponible:', error.message);
+}
 
 export { adminDb, adminStorage };

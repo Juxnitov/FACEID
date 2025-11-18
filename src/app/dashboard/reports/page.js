@@ -124,7 +124,7 @@ export default function ReportsPage() {
     }
     setLoading(false);
   };
-
+  
   // --- NUEVO: Función que recibe e interpreta el comando de voz ---
   const handleVoiceCommand = useCallback((command) => {
     console.log("Interpretando comando:", command);
@@ -145,25 +145,25 @@ export default function ReportsPage() {
       <div className="space-y-8">
 
         {/* Card para Reporte 1 */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="bg-white p-6 rounded-lg shadow-lg">
           <h2 className="text-xl font-semibold mb-4">1. Valor Total de Ventas</h2>
           <p className="text-gray-600 mb-4">Genera un reporte con el listado de todas las ventas y el valor total acumulado.</p>
-          <button onClick={generateSalesValueReport} disabled={loading} className="bg-indigo-600 text-white px-6 py-2 rounded-md hover:bg-indigo-700 disabled:bg-indigo-300">
+          <button onClick={generateSalesValueReport} disabled={loading} className="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 disabled:bg-purple-400">
             {loading ? "Generando..." : "Generar Reporte de Ventas"}
           </button>
         </div>
 
         {/* Card para Reporte 2 */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="bg-white p-6 rounded-lg shadow-lg">
           <h2 className="text-xl font-semibold mb-4">2. Total de Productos en Stock</h2>
           <p className="text-gray-600 mb-4">Genera un reporte con el listado de todos los productos, su stock actual y el total de unidades en el inventario.</p>
-          <button onClick={generateStockReport} disabled={loading} className="bg-indigo-600 text-white px-6 py-2 rounded-md hover:bg-indigo-700 disabled:bg-indigo-300">
+          <button onClick={generateStockReport} disabled={loading} className="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 disabled:bg-purple-400">
             {loading ? "Generando..." : "Generar Reporte de Stock"}
           </button>
         </div>
 
         {/* Card para Reporte 3 */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="bg-white p-6 rounded-lg shadow-lg">
           <h2 className="text-xl font-semibold mb-4">3. Compras por Cliente</h2>
           <p className="text-gray-600 mb-4">Busca todas las compras realizadas por un cliente específico a través de su ID/Cédula.</p>
           <div className="flex gap-4">
@@ -172,9 +172,9 @@ export default function ReportsPage() {
               value={searchId}
               onChange={e => setSearchId(e.target.value)}
               placeholder="Ingresa ID del cliente"
-              className="w-full border px-3 py-2 rounded-md"
+              className="w-full border border-purple-200 px-3 py-2 rounded-md focus:ring-purple-500 focus:border-purple-500"
             />
-            <button onClick={generateCustomerSalesReport} disabled={loading} className="bg-indigo-600 text-white px-6 py-2 rounded-md hover:bg-indigo-700 disabled:bg-indigo-300 whitespace-nowrap">
+            <button onClick={generateCustomerSalesReport} disabled={loading} className="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 disabled:bg-purple-400 whitespace-nowrap">
               {loading ? "Buscando..." : "Buscar y Generar"}
             </button>
           </div>

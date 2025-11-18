@@ -86,13 +86,20 @@ export default function AddProductForm() {
         body: formData,
       });
 
-      const uploadData = await uploadResponse.json();
+      const contentType = uploadResponse.headers.get('content-type') || '';
+      const isJson = contentType.includes('application/json');
+      const payload = isJson ? await uploadResponse.json() : await uploadResponse.text();
 
-      if (!uploadData.success) {
-        throw new Error(uploadData.error || 'Fallo al subir la imagen.');
+      if (!isJson) {
+        console.error('Respuesta no JSON al subir imagen:', payload);
+        throw new Error('El servidor devolvió una respuesta inválida al subir la imagen.');
       }
 
-      const imageUrl = uploadData.url;
+      if (!uploadResponse.ok || !payload.success) {
+        throw new Error(payload.error || 'Fallo al subir la imagen.');
+      }
+
+      const imageUrl = payload.url;
 
       // 2. Guardar los datos del producto en Firestore
       const productsCollectionRef = collection(db, "products");

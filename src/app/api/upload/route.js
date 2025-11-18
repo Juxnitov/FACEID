@@ -1,11 +1,22 @@
 // src/app/api/upload/route.js
 import { NextResponse } from 'next/server';
-import { adminStorage } from '../../../lib/firebase-admin';
+import { adminStorage } from '@/lib/firebase-admin';
 
 export async function POST(req) {
   // Este es el console.log más importante
   console.log("--- PETICIÓN RECIBIDA en /api/upload ---");
   
+  if (!adminStorage) {
+    console.error("API Error: Firebase Admin no está configurado.");
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Firebase Admin no está configurado. Verifica las variables de entorno del servidor.',
+      },
+      { status: 500 }
+    );
+  }
+
   try {
     const formData = await req.formData();
     const file = formData.get('file');

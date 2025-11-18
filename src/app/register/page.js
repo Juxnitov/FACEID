@@ -2,9 +2,9 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useAuth } from '../../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { db } from '../../../lib/firebase';
+import { db } from '../../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import Link from 'next/link';
 
@@ -112,30 +112,30 @@ export default function ProfilePage() {
   if (!user) return <div className="flex items-center justify-center min-h-screen">Redirigiendo...</div>;
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
-      <div className="w-full max-w-md p-8 space-y-4 bg-white rounded-lg shadow-md text-center">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-purple-50 p-4">
+      <div className="w-full max-w-md p-8 space-y-4 bg-white rounded-lg shadow-lg text-center">
         <h1 className="text-2xl font-bold">Perfil de Usuario</h1>
         <p>Hola, {user.email}</p>
         <div className="border-t pt-4">
           <h2 className="text-xl font-semibold mb-2">Login con Face ID</h2>
-          <div className="bg-gray-800 w-full aspect-square rounded-md mx-auto overflow-hidden flex items-center justify-center">
+          <div className="bg-purple-900 w-full aspect-square rounded-md mx-auto overflow-hidden flex items-center justify-center">
             <video ref={videoRef} autoPlay muted playsInline className={isCameraOn ? 'block' : 'hidden'} style={{ transform: 'scaleX(-1)' }}></video>
           </div>
           {loadingMessage && <p>{loadingMessage}</p>}
           {error && <p className="text-red-500">{error}</p>}
-          {!error && !loadingMessage && <p className="text-gray-600 h-6">{message}</p>}
+          {!error && !loadingMessage && <p className="text-purple-700 h-6">{message}</p>}
           <div className="mt-4 space-y-2">
             {!isCameraOn ? (
-              <button onClick={startCamera} disabled={!!loadingMessage} className="w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600 disabled:bg-blue-300">Activar Cámara</button>
+              <button onClick={startCamera} disabled={!!loadingMessage} className="w-full bg-purple-600 text-white py-2 rounded-md hover:bg-purple-700 disabled:bg-purple-400">Activar Cámara</button>
             ) : (
               <>
                 <button onClick={handleRegisterFace} className="w-full bg-green-500 text-white py-2 rounded-md hover:bg-green-600">Escanear y Guardar mi Rostro</button>
-                <button onClick={stopCamera} className="w-full bg-gray-500 text-white py-2 rounded-md hover:bg-gray-600">Cancelar</button>
+                <button onClick={stopCamera} className="w-full bg-gray-400 text-white py-2 rounded-md hover:bg-gray-500">Cancelar</button>
               </>
             )}
           </div>
         </div>
-        <Link href="/dashboard" className="mt-4 text-indigo-600 hover:text-indigo-700">Volver al Dashboard</Link>
+        <Link href="/dashboard" className="mt-4 text-purple-600 hover:text-purple-700">Volver al Dashboard</Link>
       </div>
     </div>
   );

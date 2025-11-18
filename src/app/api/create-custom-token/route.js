@@ -1,17 +1,17 @@
 // src/app/api/create-custom-token/route.js
 import { NextResponse } from 'next/server';
 import admin from 'firebase-admin';
-
-// Inicializar Firebase Admin si no está inicializado
-if (!admin.apps.length) {
-  const serviceAccount = require("../../../../serviceAccountKey.json");
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
-}
+import '@/lib/firebase-admin';
 
 export async function POST(req) {
   try {
+    if (!admin.apps.length) {
+      return NextResponse.json(
+        { error: 'Firebase Admin no está configurado. Revisa las variables de entorno del servidor.' },
+        { status: 500 }
+      );
+    }
+
     const { email } = await req.json();
 
     if (!email) {
